@@ -1,0 +1,429 @@
+/****************************************************************************
+* ATxmega library for the LM629 - Version 1.0                               *
+* © Copyright 2012,2013 Filippo Pardini - filippo@robotica.eng.br           *
+*                                                                           *
+* This program is free software: you can redistribute it and/or modify it   *
+* under the terms of the GNU Lesser General Public License as published by  *
+* the Free Software Foundation, either version 3 of the License, or any     *
+* later version.                                                            *
+*                                                                           *
+* This program is distributed in the hope that it will be useful,           *
+* but WITHOUT ANY WARRANTY; without even the implied warranty of            *
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the              *
+* GNU Lesser General Public License for more details.                       *
+*                                                                           *
+* You should have received a copy of the GNU Lesser General Public License  *
+* along with this program. If not, see <http://www.gnu.org/licenses/>.      *
+****************************************************************************/
+
+#include <io.h>
+#include <iobits.h>
+
+void prta_DIR(unsigned char prt, unsigned char io)
+{
+    //Defines the pins direction of the prta port
+    //io => each bit defines the pin direction (0 => input; 1 => output)
+
+    switch(prt)
+    {
+        case 'A':
+            PORTA.DIR = io;
+            break;
+         case 'B':
+            PORTB.DIR = io;
+            break;
+         case 'C':
+            PORTC.DIR = io;
+            break;
+         case 'D':
+            PORTD.DIR = io;
+            break;
+         case 'E':
+            PORTE.DIR = io;
+            break;
+         case 'F':
+            PORTF.DIR = io;
+            break;
+         case 'H':
+            PORTH.DIR = io;
+            break;
+         case 'J':
+            PORTJ.DIR = io;
+            break;
+         case 'K':
+            PORTK.DIR = io;
+            break;
+         case 'Q':
+            PORTQ.DIR = io;
+            break;
+         case 'R':
+            PORTR.DIR = io;
+            break;
+    }
+}
+
+//______________________________________________________________________________________________________________________
+
+void prta_OUT(unsigned char prt, unsigned char byt)
+{
+    //Places the byt byte on the prta port
+
+    switch(prt)
+    {
+        case 'A':
+            PORTA.OUT = byt;
+            break;
+         case 'B':
+            PORTB.OUT = byt;
+            break;
+         case 'C':
+            PORTC.OUT = byt;
+            break;
+         case 'D':
+            PORTD.OUT = byt;
+            break;
+         case 'E':
+            PORTE.OUT = byt;
+            break;
+         case 'F':
+            PORTF.OUT = byt;
+            break;
+         case 'H':
+            PORTH.OUT = byt;
+            break;
+         case 'J':
+            PORTJ.OUT = byt;
+            break;
+         case 'K':
+            PORTK.OUT = byt;
+            break;
+         case 'Q':
+            PORTQ.OUT = byt;
+            break;
+         case 'R':
+            PORTR.OUT = byt;
+            break;
+    }
+}
+
+//______________________________________________________________________________________________________________________
+
+unsigned char prta_IN(unsigned char prt)
+{
+    //Receives a byte from port prta
+
+    switch(prt)
+    {
+        case 'A':
+            return PORTA.IN;
+         case 'B':
+            return PORTB.IN;
+         case 'C':
+            return PORTC.IN;
+         case 'D':
+            return PORTD.IN;
+         case 'E':
+            return PORTE.IN;
+         case 'F':
+            return PORTF.IN;
+         case 'H':
+            return PORTH.IN;
+         case 'J':
+            return PORTJ.IN;
+         case 'K':
+            return PORTK.IN;
+         case 'Q':
+            return PORTQ.IN;
+         case 'R':
+            return PORTR.IN;
+    }
+}
+
+//______________________________________________________________________________________________________________________
+
+void pin_INPUT(char *door)
+{
+    //Defines the port pin *door as input
+
+    unsigned char n,pta;
+
+    pta = door[0];              //Port
+    n = 1 << (door[1] - 48);    //Pin
+
+    n ^= 0xFF;
+    switch(pta)
+    {
+     case 'A':
+        PORTA.DIR &= n;
+        break;
+     case 'B':
+        PORTB.DIR &= n;
+        break;
+     case 'C':
+        PORTC.DIR &= n;
+        break;
+     case 'D':
+        PORTD.DIR &= n;
+        break;
+     case 'E':
+        PORTE.DIR &= n;
+        break;
+     case 'F':
+        PORTF.DIR &= n;
+        break;
+     case 'H':
+        PORTH.DIR &= n;
+        break;
+     case 'J':
+        PORTJ.DIR &= n;
+        break;
+     case 'K':
+        PORTK.DIR &= n;
+        break;
+     case 'Q':
+        PORTQ.DIR &= n;
+        break;
+     case 'R':
+        PORTR.DIR &= n;
+        break;
+    }
+}
+
+//______________________________________________________________________________________________________________________
+
+void pin_OUTPUT(char *door)
+{
+    //Defines the port pin *door output
+
+    unsigned char n,pta;
+
+    pta = door[0];              //Port
+    n = 1 << (door[1] - 48);    //Pin
+
+    switch(pta)
+    {
+     case 'A':
+        PORTA.DIR |= n;
+        break;
+     case 'B':
+        PORTB.DIR |= n;
+        break;
+     case 'C':
+        PORTC.DIR |= n;
+        break;
+     case 'D':
+        PORTD.DIR |= n;
+        break;
+     case 'E':
+        PORTE.DIR |= n;
+        break;
+     case 'F':
+        PORTF.DIR |= n;
+        break;
+     case 'H':
+        PORTH.DIR |= n;
+        break;
+     case 'J':
+        PORTJ.DIR |= n;
+        break;
+     case 'K':
+        PORTK.DIR |= n;
+        break;
+     case 'Q':
+        PORTQ.DIR |= n;
+        break;
+     case 'R':
+        PORTR.DIR |= n;
+        break;
+    }
+}
+
+//______________________________________________________________________________________________________________________
+
+void putpin(char *door,unsigned char v)
+{
+    //Sets the port pin *door as high (v=1) or low (v=0)
+
+    unsigned char n,pta;
+
+    pta = door[0];      //Port
+    n = door[1] - 48;   //Pin
+    if (v == 0)
+    {
+           switch(pta)
+           {
+             case 'A':
+                CLRBIT(PORTA.OUT,n);
+                break;
+             case 'B':
+                CLRBIT(PORTB.OUT,n);
+                break;
+             case 'C':
+                CLRBIT(PORTC.OUT,n);
+                break;
+             case 'D':
+                CLRBIT(PORTD.OUT,n);
+                break;
+             case 'E':
+                CLRBIT(PORTE.OUT,n);
+                break;
+             case 'F':
+                CLRBIT(PORTF.OUT,n);
+                break;
+             case 'H':
+                CLRBIT(PORTH.OUT,n);
+                break;
+             case 'J':
+                CLRBIT(PORTJ.OUT,n);
+                break;
+             case 'K':
+                CLRBIT(PORTK.OUT,n);
+                break;
+             case 'Q':
+                CLRBIT(PORTQ.OUT,n);
+                break;
+             case 'R':
+                CLRBIT(PORTR.OUT,n);
+                break;
+           }
+    }
+    else
+    {
+        switch(pta)
+        {
+            case 'A':
+                SETBIT(PORTA.OUT,n);
+                break;
+            case 'B':
+                SETBIT(PORTB.OUT,n);
+                break;
+            case 'C':
+                SETBIT(PORTC.OUT,n);
+                break;
+            case 'D':
+                SETBIT(PORTD.OUT,n);
+                break;
+            case 'E':
+                SETBIT(PORTE.OUT,n);
+                break;
+            case 'F':
+                SETBIT(PORTF.OUT,n);
+                break;
+            case 'H':
+                SETBIT(PORTH.OUT,n);
+                break;
+            case 'J':
+                SETBIT(PORTJ.OUT,n);
+                break;
+            case 'K':
+                SETBIT(PORTK.OUT,n);
+                break;
+            case 'Q':
+                SETBIT(PORTQ.OUT,n);
+                break;
+            case 'R':
+                SETBIT(PORTR.OUT,n);
+                break;
+        }
+    }
+}
+
+//______________________________________________________________________________________________________________________
+
+unsigned char getpin(char *door)
+{
+    //Reads the port pin (high = 1, low = 0)
+
+    unsigned char x,n,pta;
+
+    pta = door[0];      //Port
+    n = door[1] - 48;   //Pin
+    switch(pta)
+    {
+        case 'A':
+            x = TSTBIT(PORTA.IN,n);
+            break;
+        case 'B':
+            x = TSTBIT(PORTB.IN,n);
+            break;
+        case 'C':
+            x = TSTBIT(PORTC.IN,n);
+            break;
+        case 'D':
+            x = TSTBIT(PORTD.IN,n);
+            break;
+        case 'E':
+            x = TSTBIT(PORTE.IN,n);
+            break;
+        case 'F':
+            x = TSTBIT(PORTF.IN,n);
+            break;
+        case 'H':
+            x = TSTBIT(PORTH.IN,n);
+            break;
+        case 'J':
+            x = TSTBIT(PORTJ.IN,n);
+            break;
+        case 'K':
+            x = TSTBIT(PORTK.IN,n);
+            break;
+        case 'Q':
+            x = TSTBIT(PORTQ.IN,n);
+            break;
+        case 'R':
+            x = TSTBIT(PORTR.IN,n);
+            break;
+    }
+    return(x);
+}
+
+//______________________________________________________________________________________________________________________
+
+void togglepin(char *door)
+{
+    //Toggles the port pin
+
+    unsigned char n,pta;
+
+    pta = door[0];      //Port
+    n = door[1] - 48;   //Pin
+    switch(pta)
+    {
+        case 'A':
+            TGLBIT(PORTA.OUT,n);
+            break;
+        case 'B':
+            TGLBIT(PORTB.OUT,n);
+            break;
+        case 'C':
+            TGLBIT(PORTC.OUT,n);
+            break;
+        case 'D':
+            TGLBIT(PORTD.OUT,n);
+            break;
+        case 'E':
+            TGLBIT(PORTE.OUT,n);
+            break;
+        case 'F':
+            TGLBIT(PORTF.OUT,n);
+            break;
+        case 'H':
+            TGLBIT(PORTH.OUT,n);
+            break;
+        case 'J':
+            TGLBIT(PORTJ.OUT,n);
+            break;
+        case 'K':
+            TGLBIT(PORTK.OUT,n);
+            break;
+        case 'Q':
+            TGLBIT(PORTQ.OUT,n);
+            break;
+        case 'R':
+            TGLBIT(PORTR.OUT,n);
+            break;
+    }
+}
+
+//**********************************************************************************************************************
+
