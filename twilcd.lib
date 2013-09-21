@@ -1,0 +1,705 @@
+/****************************************************************************
+* ATxmega library for the LM629 - Version 1.0                               *
+* © Copyright 2012,2013 Filippo Pardini - filippo@robotica.eng.br           *
+*                                                                           *
+* This program is free software: you can redistribute it and/or modify it   *
+* under the terms of the GNU Lesser General Public License as published by  *
+* the Free Software Foundation, either version 3 of the License, or any     *
+* later version.                                                            *
+*                                                                           *
+* This program is distributed in the hope that it will be useful,           *
+* but WITHOUT ANY WARRANTY; without even the implied warranty of            *
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the              *
+* GNU Lesser General Public License for more details.                       *
+*                                                                           *
+* You should have received a copy of the GNU Lesser General Public License  *
+* along with this program. If not, see <http://www.gnu.org/licenses/>.      *
+****************************************************************************/
+
+/*
+Remember that the TWI bus must have pull-up resistors on SDA and SCL.
+We recommend 1.8K or 4.7K resistors.
+The TWI must be initialized as in the example below. In the example
+has been used TWID:
+
+*****************************************************************************
+
+#include <twilcd.h>
+.  .  .
+
+// TWI clock rate [bps]
+#define TWI_CLK_RATE 100000
+
+// structure that holds information used by the TWID master
+// for performing a TWI bus transaction
+TWI_MASTER_INFO_t twid_master;
+
+interrupt [TWID_TWIM_vect] void twid_master_isr(void)
+{
+	twi_master_int_handler(&twid_master);
+}
+
+void main(void)
+{
+	unsigned char h,m,s;
+
+	// general TWID initialization
+	// no external driver interface
+	// no SDA hold time
+	twi_init(&TWID,false,false);
+
+	// initialize the TWID master
+	twi_master_init(&twid_master,&TWID,TWI_MASTER_INTLVL_LO_gc,TWI_BAUD_REG(_MCU_CLOCK_FREQUENCY_,TWI_CLK_RATE));
+
+	// set the LCD03 functions to use TWID
+	lcd03_twi_init(&twid_master);
+
+	// enable LO interrupt level
+	PMIC.CTRL |= PMIC_LOLVLEN_bm;
+
+	// enable interrupts
+	#asm("sei")
+
+	// now the rest of the LCD03 functions can be used
+
+	// ....
+}
+
+*****************************************************************************
+
+*/
+
+#include <twix.h>
+#include <delay.h>
+
+#define ad_eternum while(1)
+#define delta_time(t) (unsigned long int)(*inst - (unsigned long int)t)
+#define lcd_cursor_home() lcd_byte_write(1)
+#define lcd_set_cursor_1_80(pos) lcd_2byte_write(2,pos)
+#define lcd_set_cursor_l_c(l,c) lcd_3byte_write(3,l,c)
+#define lcd_hide_cursor() lcd_byte_write(4)
+#define lcd_cursor_type(tipo) if (tipo) lcd_byte_write(6);else lcd_byte_write(5)
+#define lcd_backspace() lcd_byte_write(8)
+#define lcd_h_tab() lcd_byte_write(9)
+#define lcd_v_tab() lcd_byte_write(11)
+#define lcd_smart_line_feed() lcd_byte_write(10)
+#define lcd_carriage_return() lcd_byte_write(13)
+#define lcd_clear_column() lcd_byte_write(17)
+#define lcd_tab_set(tab) if ((tab >= 1) & (tab <= 10)) lcd_2byte_write(18,tab)
+#define lcd_backlight_on() lcd_byte_write(19)
+#define lcd_backlight_off() lcd_byte_write(20)
+#define lcd_char_write(ascii) lcd_byte_write(ascii)
+#define lcd_clear_screen() lcd_byte_write(12)
+
+static TWI_MASTER_INFO_t *ptwi_master;
+unsigned char ender;
+unsigned long int *inst;
+unsigned char TIME_OUT_TECLADO;
+unsigned char display_buffer[81];
+
+//**********************************************************************************************************************
+
+void lcd03_twi_init(TWI_MASTER_INFO_t *ptwim,unsigned char addr,unsigned long int *rel,unsigned char tot)
+{
+    //Initializes LCD03
+    //ptwim - TWI pointer
+    //rel - pointer to the relogio variable (in milliseconds)
+    //tot - keyboard time (in milliseconds)
+
+    ptwi_master = ptwim;
+    ender = addr;
+    inst = rel;
+    TIME_OUT_TECLADO = tot;
+}
+
+//______________________________________________________________________________________________________________________
+
+void lcd_byte_write(unsigned char data)
+{
+    //writes 1 byte to LCD03 (adress ender) register 0
+    //data - Byte to write
+
+    unsigned char w[2];
+
+    w[0] = 0;
+    w[1] = data;
+    twi_master_trans(ptwi_master,ender>>1,w,2,NULL,0);
+}
+
+//______________________________________________________________________________________________________________________
+
+void lcd_2byte_write(unsigned char data1, unsigned char data2)
+{
+    //writes 2 bytes to LCD03 (adress ender) register 0
+    //data1 and data2 - bytes to write
+
+    unsigned char w[3];
+
+    w[0] = 0;
+    w[1] = data1;
+    w[2] = data2;
+    twi_master_trans(ptwi_master,ender>>1,w,3,NULL,0);
+}
+
+//______________________________________________________________________________________________________________________
+
+void lcd_3byte_write(unsigned char data1, unsigned char data2, unsigned char data3)
+{
+    //writes 3 bytes to LCD03 (adress ender) register 0
+    //data1, data2 e data3 - bytes to write
+
+    unsigned char w[4];
+
+    w[0] = 0;
+    w[1] = data1;
+    w[2] = data2;
+    w[3] = data3;
+    twi_master_trans(ptwi_master,ender>>1,w,4,NULL,0);
+}
+
+//______________________________________________________________________________________________________________________
+
+unsigned char lcd_register_read(unsigned char reg)
+{
+    //Reads the LCD03 reg register
+
+    unsigned char data;
+    unsigned char ender;
+
+    ender = reg;
+    twi_master_trans(ptwi_master,ender>>1,&ender,1,&data,1);
+    return data;
+}
+
+//______________________________________________________________________________________________________________________
+
+void lcd_char_string_write(char *str)
+{
+    //Sends the str string to the LCD03
+
+    unsigned char n;
+    char * ptr;
+
+    n = 0;
+    ptr = str + 1;
+    while(*ptr != '\0') {n++;ptr++;}
+    n++;
+    twi_master_trans(ptwi_master,ender>>1,str,n,NULL,0);
+}
+
+//______________________________________________________________________________________________________________________
+
+void lcd_clear_line(unsigned char lin)
+{
+    //Cleans the lin line and places the cursor at the beginning of the line
+
+    unsigned char i;
+
+    lcd_set_cursor_l_c(lin,1);
+    for(i=1;i<=20;i++) lcd_char_write(32);
+    lcd_set_cursor_l_c(lin,1);
+}
+
+//______________________________________________________________________________________________________________________
+
+char convert_keypad(unsigned char tipo, unsigned char car)
+{
+    //Converts the keypad bits to the corresponding characters
+
+    char baite;
+
+    baite = 0;      // Inválido
+    switch (tipo)
+    {
+        case 1:     // É LSB
+        {
+            switch (car)
+            {
+                case 1:     {baite = 49; break;}    // ASCII 1
+                case 2:     {baite = 50; break;}    // ASCII 2
+                case 4:     {baite = 51; break;}    // ASCII 3
+                case 8:     {baite = 52; break;}    // ASCII 4
+                case 16:    {baite = 53; break;}    // ASCII 5
+                case 32:    {baite = 54; break;}    // ASCII 6
+                case 64:    {baite = 55; break;}    // ASCII 7
+                case 128:   {baite = 56; break;}    // ASCII 8
+                default:    break;
+            }
+            break;
+        }
+
+        case 2  :   // É MSB
+        {
+            switch (car)
+            {
+                case 1:     {baite = 57; break;}    // ASCII 9
+                case 2:     {baite = 42; break;}    // ASCII *
+                case 4:     {baite = 48; break;}    // ASCII 0
+                case 8:     {baite = 35; break;}    // ASCII #
+                default:    break;
+            }
+            break;
+        }
+        default:    break;
+    }
+    return baite;
+}
+
+//______________________________________________________________________________________________________________________
+
+char read_display_keypad(unsigned char mostra)
+{
+    //Reads the keypad character, sends it to the LCD03 and returns it
+    //mostra = 1 - send to the LCD03 the own characters
+    //mostra = 0 - send to the LCD03 the characters '_'
+
+    unsigned char msb,lsb;
+    char baite;
+
+    lsb = lcd_register_read(1);
+    msb = lcd_register_read(2);
+    if (lsb != 0)
+    {
+        baite = convert_keypad(1,lsb);
+        if (mostra) lcd_char_write(baite);
+        else lcd_char_write('_');
+    }
+    else if (msb != 0)
+    {
+        baite = convert_keypad(2,msb);
+        if (mostra) lcd_char_write(baite);
+        else lcd_char_write('_');
+    }
+    else baite = 0;
+    return baite;
+}
+
+//______________________________________________________________________________________________________________________
+
+unsigned char calcula(char *cmp)
+{
+    //Calculates the command code value. If OK, returns the value. On the contrary returns 0
+
+    unsigned char i,j;
+    unsigned char *ptr;
+    unsigned int val,k;
+
+    ptr = cmp;
+    k = 1;
+    val = 0;
+    for (i=0;i<4;i++)
+    {
+        if (*ptr == '*')
+        {
+            ptr--;
+            for (j=1;j<=i;j++)
+            {
+                val = val + (k * (*ptr - 48));
+                k = k * 10;
+                ptr--;
+            }
+            if (val <= 255) return (unsigned char)val;
+            else return 0;
+        }
+        else ptr++;
+    }
+    return 0;
+}
+
+//______________________________________________________________________________________________________________________
+
+char receive_keypad_cod(unsigned char t_o)
+{
+    //Receives the command code from keypad
+
+    unsigned char cod;
+    unsigned char nc,baite;
+    unsigned char campo[4];
+    unsigned char *ptca;
+    unsigned long int inst1;
+
+    if (t_o > 0) inst1 = *inst;
+    campo[3] = '\0';
+    ptca = campo;
+    while(*ptca != '\0') *ptca++ = ' ';
+    nc = 0;
+    ptca = campo;
+    ad_eternum
+    {
+
+        if (t_o > 0) if (delta_time(inst1) > t_o) return 255;
+        baite = read_display_keypad(1);
+        if (nc > 3)
+        {
+            delay_ms(200);
+            return 0;
+        }
+        switch (baite)
+        {
+            case '#':
+            {
+                if (nc > 0)
+                {
+                    lcd_backspace();
+                    lcd_backspace();
+                    ptca--;
+                    nc--;
+                }
+                else lcd_backspace();
+                break;
+            }
+            case 0:
+                break;
+            case '*':
+            {
+                *ptca = baite;
+                cod = calcula(campo);
+                delay_ms(200);
+                return cod;
+            }
+            default:
+            {
+                *ptca = baite;
+                nc++;
+                ptca++;
+                break;
+            }
+        }
+        delay_ms(200);
+    }
+}
+
+//______________________________________________________________________________________________________________________
+
+unsigned char receive_keypad_par(unsigned char t_o, unsigned char mostra, char *ptro, unsigned char nmax)
+{
+    //Receives a command parameter and returns its size
+    //t_o - Maximum wait time in seconds
+    //mostra = 1 - displays the real characters
+    //mostra = 0 - displays '_' characters
+    //ptro - pointer to the command area
+    //nmax - maximum bytes number to receive
+
+    unsigned char nc,baite;
+    unsigned long int inst1;
+
+    if (t_o > 0) inst1 = *inst;
+    nc = 0;
+    ad_eternum
+    {
+        if (t_o > 0) if (delta_time(inst1) > t_o) return 255;
+        baite = read_display_keypad(mostra);
+        if (nc > nmax)
+        {
+            delay_ms(200);
+            return 254;
+        }
+        switch (baite)
+        {
+            case '#':
+            {
+                if (nc > 0)
+                {
+                    lcd_backspace();
+                    lcd_backspace();
+                    ptro--;
+                    nc--;
+                }
+                else lcd_backspace();
+                break;
+            }
+            case 0:
+                break;
+            case '*':
+            {
+                delay_ms(200);
+                return nc;
+            }
+            default:
+            {
+                *ptro = baite;
+                nc++;
+                ptro++;
+                break;
+            }
+        }
+        delay_ms(200);
+    }
+}
+
+//______________________________________________________________________________________________________________________
+
+unsigned char receive_command(char *cmdo)
+{
+    //Prepares the LCD03 to receive the keyed command
+
+    unsigned char cc[] = " Command code:";
+    unsigned char pc[] = " Parameter:";
+    unsigned char inv[] = " Invalid command try again";
+    unsigned char npar;
+    unsigned char *ptr;
+
+    cc[0] = 0;
+    pc[0] = 0;
+    inv[0] = 0;
+    lcd_clear_screen();
+    lcd_cursor_home();
+    lcd_char_string_write(cc);
+    lcd_carriage_return();
+    ptr = cmdo;
+    ptr++;
+    *ptr = receive_keypad_cod(TIME_OUT_TECLADO);
+    if (*ptr == 0) return 0;
+    if (*ptr == 255) return 255;
+    lcd_carriage_return();
+    lcd_char_string_write(pc);
+    lcd_carriage_return();
+volta:
+    ptr = cmdo;
+    ptr++;
+    ptr++;
+    while(*ptr != '\0') *ptr++ = ' ';
+    ptr = cmdo;
+    ptr++;
+    ptr++;
+    npar = receive_keypad_par(TIME_OUT_TECLADO,1,ptr,18);
+    if (npar == 255) return 255;
+    if (npar == 254)
+    {
+        lcd_clear_screen();
+        lcd_cursor_home();
+        lcd_hide_cursor();
+        lcd_char_string_write(inv);
+        delay_ms(2000);
+        goto volta;
+    }
+    *cmdo = npar + 50;
+    return 0;
+}
+
+//______________________________________________________________________________________________________________________
+
+char read_keypad(void)
+{
+    //Reads the keypad character
+
+    unsigned char msb,lsb;
+    char baite;
+
+    lsb = lcd_register_read(1);
+    msb = lcd_register_read(2);
+    if (lsb != 0) baite = convert_keypad(1,lsb);
+    else if (msb != 0) baite = convert_keypad(2,msb);
+    else baite = 0;
+    return baite;
+}
+
+//______________________________________________________________________________________________________________________
+
+void lcd_talk(char *fr1,char *fr2,char *fr3,unsigned char aguarda)
+{
+    //Displays a message
+    //If aguarda>=1 => waits the '*' keying
+    //If aguarda=1 => do not waits
+
+    lcd_hide_cursor();
+    lcd_clear_screen();
+    lcd_cursor_home();
+    lcd_char_string_write(fr1);
+    lcd_set_cursor_l_c(2,1);
+    lcd_char_string_write(fr2);
+    lcd_set_cursor_l_c(3,1);
+    lcd_char_string_write(fr3);
+    if (aguarda)
+    {
+        lcd_set_cursor_l_c(4,1);
+        while(read_keypad() != '*') delay_ms(200);
+        lcd_cursor_type(0);
+    }
+    delay_ms(200);
+}
+
+//______________________________________________________________________________________________________________________
+
+void lcd_display123(char *fr1,char *fr2,char *fr3, unsigned char seg)
+{
+    //Displays lines 1,2,3
+    //If seg > 0 => waits seg seconds and clears the display
+
+    lcd_clear_line(1);
+    lcd_set_cursor_l_c(1,1);
+    lcd_char_string_write(fr1);
+    lcd_clear_line(2);
+    lcd_set_cursor_l_c(2,1);
+    lcd_char_string_write(fr2);
+    lcd_clear_line(3);
+    lcd_set_cursor_l_c(3,1);
+    lcd_char_string_write(fr3);
+    lcd_hide_cursor();
+    if (seg)
+    {
+        delay_ms(1000*seg);
+        lcd_clear_screen();
+    }
+    else delay_ms(200);
+}
+
+//______________________________________________________________________________________________________________________
+
+void lcd_display1234(char *fr1,char *fr2,char *fr3,char *fr4, unsigned char seg)
+{
+    //Displays lines 1,2,3,4
+    //If seg > 0 => waits seg seconds and clears the display
+
+    lcd_clear_line(1);
+    lcd_set_cursor_l_c(1,1);
+    lcd_char_string_write(fr1);
+    lcd_clear_line(2);
+    lcd_set_cursor_l_c(2,1);
+    lcd_char_string_write(fr2);
+    lcd_clear_line(3);
+    lcd_set_cursor_l_c(3,1);
+    lcd_char_string_write(fr3);
+    lcd_clear_line(4);
+    lcd_set_cursor_l_c(4,1);
+    lcd_char_string_write(fr4);
+    lcd_hide_cursor();
+    if (seg)
+    {
+        delay_ms(1000*seg);
+        lcd_clear_screen();
+    }
+    else delay_ms(200);
+}
+
+//______________________________________________________________________________________________________________________
+
+void limpa_display_buffer(void)
+{
+    //Clears the display buffer
+
+    unsigned char i,n;
+
+    n = sizeof display_buffer;
+    for (i=0;i<n;i++) display_buffer[i] = ' ';
+    display_buffer[n-1] = '\0';
+}
+
+//______________________________________________________________________________________________________________________
+
+void display_flash(unsigned char limpa, unsigned char linha, signed char center, flash unsigned char *str,
+                   signed char seg)
+{
+    //Displays the str string from flash in the linha line
+    //limpa=1 => clears the display before
+    //limpa=0 => do not clears the display before
+    //seg>=0 => displays the line for seg seconds
+    //seg<0 => do not returns
+    //center=0 => line aligned to the left
+    //center=1 => line aligned to the center
+    //center<0 => line aligned at the present cursor position
+    //If remainder(linha/4) = 0 => line 4
+    //If remainder(linha/4) > 0 => this is the line
+
+    unsigned char i,resto,n,k;
+    const unsigned char quatro = 4;
+    const unsigned char dois = 2;
+
+    if (limpa) lcd_clear_screen();
+    n = strlenf(str) + 1;
+    limpa_display_buffer();
+    display_buffer[0] = 0;
+    for (i=1;i<=n;i++)
+    {
+        display_buffer[i] = *str;
+        str++;
+    }
+    if (center > 0)
+    {
+        k = (22 - n) / dois;
+        resto = linha - (linha / quatro * quatro);
+        if (resto == 0) linha = quatro;
+        else linha = resto;
+        lcd_clear_line(linha);
+        lcd_set_cursor_l_c(linha,k);
+    }
+    else if (center < 0);
+    else
+    {
+        k = 1;
+        resto = linha - (linha / quatro * quatro);
+        if (resto == 0) linha = quatro;
+        else linha = resto;
+        lcd_clear_line(linha);
+        lcd_set_cursor_l_c(linha,k);
+    }
+    lcd_hide_cursor();
+    lcd_char_string_write(display_buffer);
+    if (seg == 0) return;
+    if (seg > 0)
+    {
+        delay_ms(1000*seg);
+        lcd_clear_screen();
+    }
+    else ad_eternum;
+}
+
+//______________________________________________________________________________________________________________________
+
+void display(unsigned char limpa, unsigned char linha, signed char center, unsigned char *str, signed char seg)
+{
+    //Displays the str string in the linha line
+    //limpa=1 => clears the display before
+    //limpa=0 => do not clears the display before
+    //seg>=0 => displays the line for seg seconds
+    //seg<0 => do not returns
+    //center=0 => line aligned to the left
+    //center=1 => line aligned to the center
+    //center<0 => line aligned at the present cursor position
+    //If remainder(linha/4) = 0 => line 4
+    //If remainder(linha/4) > 0 => this is the line
+
+    unsigned char i,resto,n,k;
+    const unsigned char quatro = 4;
+    const unsigned char dois = 2;
+
+    if (limpa) lcd_clear_screen();
+    n = strlen(str) + 1;
+    limpa_display_buffer();
+    display_buffer[0] = 0;
+    for (i=1;i<=n;i++)
+    {
+        display_buffer[i] = *str;
+        str++;
+    }
+    if (center > 0)
+    {
+        k = (22 - n) / dois;
+        resto = linha - (linha / quatro * quatro);
+        if (resto == 0) linha = quatro;
+        else linha = resto;
+        lcd_clear_line(linha);
+        lcd_set_cursor_l_c(linha,k);
+    }
+    else if (center < 0);
+    else
+    {
+        k = 1;
+        resto = linha - (linha / quatro * quatro);
+        if (resto == 0) linha = quatro;
+        else linha = resto;
+        lcd_clear_line(linha);
+        lcd_set_cursor_l_c(linha,k);
+    }
+    lcd_hide_cursor();
+    lcd_char_string_write(display_buffer);
+    if (seg == 0) return;
+    if (seg > 0)
+    {
+        delay_ms(1000*seg);
+        lcd_clear_screen();
+    }
+    else ad_eternum;
+}
+
+//**********************************************************************************************************************
