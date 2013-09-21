@@ -1,0 +1,123 @@
+/****************************************************************************
+* ATxmega library for the LM629 - Version 1.0                               *
+* © Copyright 2012,2013 Filippo Pardini - filippo@robotica.eng.br           *
+*                                                                           *
+* This program is free software: you can redistribute it and/or modify it   *
+* under the terms of the GNU Lesser General Public License as published by  *
+* the Free Software Foundation, either version 3 of the License, or any     *
+* later version.                                                            *
+*                                                                           *
+* This program is distributed in the hope that it will be useful,           *
+* but WITHOUT ANY WARRANTY; without even the implied warranty of            *
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the              *
+* GNU Lesser General Public License for more details.                       *
+*                                                                           *
+* You should have received a copy of the GNU Lesser General Public License  *
+* along with this program. If not, see <http://www.gnu.org/licenses/>.      *
+****************************************************************************/
+
+#include <string.h>
+
+//______________________________________________________________________________________________________________________
+
+unsigned long int put_char_long(unsigned char b1,unsigned char b2,unsigned char b3,unsigned char b4)
+{
+    //Returns the unsigned long int formed by b1,b2,b3,b4 from left to right
+
+    return (unsigned long int)(((unsigned long int)b1 << 24) +
+                               ((unsigned long int)b2 << 16) +
+                               ((unsigned long int)b3 << 8) +
+                               (unsigned long int)b4);
+}
+
+//______________________________________________________________________________________________________________________
+
+unsigned long int put_int_long(unsigned int w1,unsigned int w2)
+{
+    //Returns the unsigned long int formed by w1,w2 from left to right
+
+    return (unsigned long int)(((unsigned long int)w1 << 16) + (unsigned long int)w2);
+}
+
+//______________________________________________________________________________________________________________________
+
+unsigned int put_char_int(unsigned char b1,unsigned char b2)
+{
+    //Returns the unsigned int formed by b1,b2 from left to right
+
+    return (unsigned int)(((unsigned int)b1 << 8) + (unsigned int)b2);
+}
+
+//______________________________________________________________________________________________________________________
+
+unsigned char get_char_long(unsigned char i,unsigned long int val)
+{
+    //Returns the unsigned long int byte i counting from left to right
+
+    switch (i)
+    {
+        case 1:
+            return (unsigned char)(val >> 24);
+        case 2:
+            return (unsigned char)((val << 8) >> 24);
+        case 3:
+            return (unsigned char)((val << 16) >> 24);
+        case 4:
+            return (unsigned char)((val << 24) >> 24);
+    }
+}
+
+//______________________________________________________________________________________________________________________
+
+unsigned char get_char_int(unsigned char i,unsigned int val)
+{
+    //Returns the unsigned int byte i counting from left to right
+
+    switch (i)
+    {
+        case 1:
+            return (unsigned char)(val >> 8);
+        case 2:
+            return (unsigned char)((val << 8) >> 8);
+    }
+}
+
+//______________________________________________________________________________________________________________________
+
+unsigned int get_int_long(unsigned char i,unsigned long int val)
+{
+    //Returns the unsigned int word i counting from left to right
+
+    switch (i)
+    {
+        case 1:
+            return (unsigned int)(val >> 16);
+        case 2:
+            return (unsigned int)((val << 16) >> 16);
+    }
+}
+
+//______________________________________________________________________________________________________________________
+
+void copy_string(unsigned char *str1,unsigned char *str2)
+{
+    //Copies the str2 string to str1 string (or vector) generating a NULL terminated string
+    //If the str1 lenght is shorter than the str2 lenght there will be truncation
+    //If the str2 lenght is shorter than the str1 lenght there will be filling with blanks
+
+    unsigned char n1,n2,i;
+
+    n1 = strlen(str1);
+    n2 = strlen(str2);
+    for (i=0;i<n1;i++)
+    {
+        if (i < n2) *str1 = *str2;
+        else *str1 = ' ';
+        str1++;
+        str2++;
+    }
+}
+
+//______________________________________________________________________________________________________________________
+
+
